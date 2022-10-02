@@ -59,6 +59,9 @@ class Triangle {
         VkDebugUtilsMessengerEXT debugMessenger;
         // Physical Device
         VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+        // Logical Device and Queues
+        VkDevice device;
+        VkQueue graphicsQueue;
 
         void initWindow() {
             glfwInit();
@@ -72,6 +75,7 @@ class Triangle {
             createInstance();
             setupDebugMessenger();
             pickPhysicalDevice();
+            createLogicalDevice();
         }
         
         void createInstance() {
@@ -172,6 +176,37 @@ class Triangle {
             return indices;
         }
 
+        // Logical Device
+        void createLogicalDevice() {
+            QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+            VkDeviceQueueCreateInfo queueCreateInfo{};
+            queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+            queueCreateInfo.queueCount = 1;
+
+            float queuePriority = 1.0f;
+            queueCreateInfo.pQueuePriorities = &queuePriority;
+            VkPhysicalDeviceFeatures deviceFeatures{};
+            
+            VkDeviceCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+            createInfo.pQueueCreateInfos = &queueCreateInfo;
+            createInfo.pEnabledFeatures = &deviceFeatures;
+            createInfo.enabledExtensionCount = 0;
+
+            if (enableValidationLayers) {
+                createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+                createInfo.ppEnabledLayerNames = validationLayers.data();
+            } else {
+                createInfo.enabledLayerCount = 0;
+            }
+
+            if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to create a Logical Device");
+            }
+            vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+        }
 
         void setupDebugMessenger() {
             if (!enableValidationLayers) return;
@@ -232,6 +267,8 @@ class Triangle {
         }
         
         void cleanup() {
+            // Device Destroy
+            vkDestroyDevice(device, nullptr);
             // Validation Layer Check
             if (enableValidationLayers) {
                 DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
